@@ -1134,6 +1134,10 @@ static void on_property_change(mpv_event *event)
             }
             break;
         }
+        case P_PLAYLIST_COUNT:
+        case P_PLAYLIST_POS:
+            ntf_set_progress_bar();
+            break;
         case P_USER_DATA__DETECT_IMAGE__DETECTED:
             ntf_set_progress_bar();
             break;
@@ -1299,12 +1303,24 @@ static void ntf_check_image(void)
 
 static void ntf_set_progress_bar(void)
 {
-    if (!op_true(P_USER_DATA__DETECT_IMAGE__DETECTED) &&
-            !op_true(P_IDLE_ACTIVE) && opt_true(O_SEND_PROGRESS)) {
+    if (op_true(P_IDLE_ACTIVE) || !opt_true(O_SEND_PROGRESS)) {
+        notify_notification_set_hint(ntf, "value", NULL);
+        return;
+    }
+
+    if (op_true(P_USER_DATA__DETECT_IMAGE__DETECTED)) {
+        if (op_avail(P_PLAYLIST_POS) && observed_props[P_PLAYLIST_COUNT].node.u.int64 > 1) {
+            double gallery_percent =
+                (observed_props[P_PLAYLIST_POS].node.u.int64 + 1) / (double)observed_props[P_PLAYLIST_COUNT].node.u.int64;
+            long gallery_percent_round = lround(gallery_percent * 100);
+            GVariant *v = g_variant_new("i", gallery_percent_round);
+            notify_notification_set_hint(ntf, "value", v);
+        } else {
+            notify_notification_set_hint(ntf, "value", NULL);
+        }
+    } else {
         GVariant *v = g_variant_new("i", percent_pos_rounded);
         notify_notification_set_hint(ntf, "value", v);
-    } else {
-        notify_notification_set_hint(ntf, "value", NULL);
     }
 }
 
