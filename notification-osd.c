@@ -1134,6 +1134,9 @@ static void on_property_change(mpv_event *event)
             }
             break;
         }
+        case P_USER_DATA__DETECT_IMAGE__DETECTED:
+            ntf_set_progress_bar();
+            break;
         default:
             break;
     }
@@ -1296,7 +1299,8 @@ static void ntf_check_image(void)
 
 static void ntf_set_progress_bar(void)
 {
-    if (!op_true(P_IDLE_ACTIVE) && opt_true(O_SEND_PROGRESS)) {
+    if (!op_true(P_USER_DATA__DETECT_IMAGE__DETECTED) &&
+            !op_true(P_IDLE_ACTIVE) && opt_true(O_SEND_PROGRESS)) {
         GVariant *v = g_variant_new("i", percent_pos_rounded);
         notify_notification_set_hint(ntf, "value", v);
     } else {
