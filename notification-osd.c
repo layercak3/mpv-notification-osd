@@ -1873,15 +1873,18 @@ int mpv_open_cplugin(mpv_handle *mpv)
     }
 
 done:
-    if (ntf)
+    thumbnail_ctx_destroy();
+
+    if (ntf) {
         ntf_close();
+        g_object_unref(ntf);
+        ntf = NULL;
+    }
 
     free(osd_str_chapter);
     mpv_free(osd_str_chapters);
     free(osd_str_edition);
     mpv_free(osd_str_editions);
-
-    thumbnail_ctx_destroy();
 
     metadata_destroy();
 
