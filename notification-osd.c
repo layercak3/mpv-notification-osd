@@ -184,6 +184,7 @@ enum metadata_key {
     M_ALBUM = 0,
     M_ALBUM_ARTIST,
     M_ARTIST,
+    M_ARTIST__ESC,
     M_DATE,
     M_DATE__YEAREXT,
     M_DISC,
@@ -1017,6 +1018,8 @@ static void metadata_update(mpv_event_property *event_prop)
         } else if (!strcasecmp(key, "artist")) {
             if (!metadata[M_ARTIST])
                 metadata[M_ARTIST] = strdup(value->u.string);
+            if (!metadata[M_ARTIST__ESC])
+                metadata[M_ARTIST__ESC] = strdupesc(value->u.string);
         } else if (!strcasecmp(key, "date")) {
             if (!metadata[M_DATE])
                 metadata[M_DATE] = strdupesc(value->u.string);
@@ -1467,7 +1470,7 @@ static void write_body(void)
     /* L4: release information, if available */
 
     const char *album_artist_txt = metadata[M_ALBUM_ARTIST];
-    if (!album_artist_txt) album_artist_txt = metadata[M_ARTIST];
+    if (!album_artist_txt) album_artist_txt = metadata[M_ARTIST__ESC];
 
     if (metadata[M_ALBUM]) {
         const char *date_txt = metadata[M_ORIGINALYEAR];
