@@ -1549,8 +1549,10 @@ static void ntf_upd(void)
     rewrite_body = false;
 
     GError *gerr = NULL;
-    if (!notify_notification_show(ntf, &gerr))
+    if (!notify_notification_show(ntf, &gerr)) {
         ERR("failed to show notification: %s", gerr->message);
+        g_error_free(gerr);
+    }
 }
 
 /*
