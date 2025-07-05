@@ -42,6 +42,9 @@
 #include <libnotify/notify.h>
 #include <libswscale/swscale.h>
 
+/* D-Bus spec maximum message length is 128 MiB */
+#define MAX_IMAGE_SIZE 127 * 1024 * 1024
+
 static const char *client_name;
 static bool mpv_has_app_name;
 static bool server_body_markup;
@@ -1203,7 +1206,15 @@ static void thumbnail_ctx_maybe_new(double src_w, double src_h,
         }
     }
 
-    thumbnail_ctx.thumbnail = malloc(thumbnail_ctx.dst_stride * thumbnail_ctx.dst_h);
+    int64_t alloc_size = thumbnail_ctx.dst_stride * thumbnail_ctx.dst_h;
+
+    if (alloc_size > MAX_IMAGE_SIZE) {
+        ERR("thumbnail output resolution is too large, disabling thumbnails");
+        thumbnail_ctx_destroy();
+        return;
+    }
+
+    thumbnail_ctx.thumbnail = malloc(alloc_size);
     if (!thumbnail_ctx.thumbnail) {
         thumbnail_ctx_destroy();
         return;
