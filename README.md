@@ -42,12 +42,12 @@ used.
 
 ## Notification lifetime
 
-Notifications are only shown while the player is considered "focused". Currently
-this is defined as the `focused` property being true and the mouse not being
-hovered over the window. The intent is that notifications don't need to be shown
-while you are interacting with the player window. There is also support to
-manually or externally dictate if the notification is shown using script
-messages.
+Notifications are only shown while the player is not considered to be "focused".
+Currently, "focused" is defined as the `focused` property being true or the
+mouse being hovered over the window. The intent is that notifications don't need
+to be shown while the user is interacting with the player window, only when they
+are doing something else. There is also support to manually or externally
+dictate if the notification is shown using script messages.
 
 After a triggering property change or event occurs which opens the
 notification, it will expire after 10 seconds by default. During this time, the
@@ -113,6 +113,7 @@ changed at runtime.
 * `disable_scaling` (boolean): Don't scale the thumbnail, and instead send the
   screenshot directly to the notification server. This can be slow depending on
   the notification server, and its scaling method will likely be lower quality.
+  (default: no)
 * `focus_manual` (boolean): Always consider the player to be focused,
   effectively never showing the notification unless the script messages are used
   to manually/externally show it. (default: no)
