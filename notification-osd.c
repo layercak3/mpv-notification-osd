@@ -1817,7 +1817,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
         goto done;
     }
 
-    if (!(timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK))) {
+    if ((timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
         ERR("timerfd_create() failed: %m");
         goto done;
     }
