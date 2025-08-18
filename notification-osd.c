@@ -790,37 +790,22 @@ static void opts_from_file(struct mpv_node *o)
     int line_count = 0;
 
     while (getline(&line, &size, cfg_file) != -1) {
+        char *value;
+
         line_count++;
 
-        if (!str_is_set(line) || *line == '#')
+        if (!str_is_set(line) || *line == '#' || !(value = strchr(line, '=')))
             continue;
 
-        char *key = NULL;
-        char *value = NULL;
-        char *str, *token, *saveptr;
-        int j;
+        size_t line_len = strlen(line);
+        if (line[line_len - 1] == '\n')
+            line[line_len - 1] = '\0';
 
-        for (j = 1, str = line; ; j++, str = NULL) {
-            token = strtok_r(str, "=", &saveptr);
-            if (!token)
-                break;
+        *value = '\0';
+        value++;
 
-            if (j == 1 && str_is_set(token))
-                key = strdup(token);
-            else if (j == 2 && str_is_set(token))
-                value = strdup(token);
-        }
-
-        if (key && value) {
-            size_t value_len = strlen(value);
-            if (value_len > 0 && value[value_len - 1] == '\n')
-                value[value_len - 1] = '\0';
-            set_opt(o, line_count, key, value);
-        }
-
-        free(key);
-        free(value);
-    }
+        set_opt(o, line_count, line, value);
+   }
 
     free(line);
 
