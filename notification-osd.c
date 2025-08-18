@@ -692,6 +692,8 @@ static void set_opt(struct mpv_node *o, int line_count, const char *key,
         msg_pfx = msg_pfx_store;
     }
 
+    VERBOSE("%s setting option '%s' to '%s'", msg_pfx, key, value);
+
     if (!strcmp(key, "expire_timeout")) {
         if (!strtolol(value, &num_value) || num_value < 0)
             goto bad_number;
@@ -752,7 +754,6 @@ static void set_opt(struct mpv_node *o, int line_count, const char *key,
         return;
     }
 
-    VERBOSE("%s set option '%s' to '%s'", msg_pfx, key, value);
     return;
 
 bad_number:
