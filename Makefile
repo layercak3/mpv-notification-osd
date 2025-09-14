@@ -1,6 +1,6 @@
 PKG_CONFIG ?= pkg-config
 
-BASE_CFLAGS = -Wall -Wextra -Wpedantic -Werror -Wno-missing-field-initializers -O2 $(shell $(PKG_CONFIG) --cflags gdk-pixbuf-2.0 glib-2.0 libnotify libswscale mpv)
+BASE_CFLAGS = -Wall -Wextra -Wpedantic -Wno-missing-field-initializers -O2 $(shell $(PKG_CONFIG) --cflags gdk-pixbuf-2.0 glib-2.0 libnotify libswscale mpv)
 BASE_LDFLAGS = $(shell $(PKG_CONFIG) --libs gdk-pixbuf-2.0 glib-2.0 libnotify libswscale)
 
 SCRIPTS_DIR := $(HOME)/.config/mpv/scripts
