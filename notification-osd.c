@@ -476,7 +476,8 @@ static bool strtolol(const char *str, long *lol)
     return true;
 }
 
-static const char *get_replace_str(char c) {
+static const char *get_replace_str(char c)
+{
     switch (c) {
         case '<':
             return "&lt;";
