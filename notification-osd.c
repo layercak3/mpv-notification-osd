@@ -516,6 +516,11 @@ static char *strdupesc(const char *s)
     return dst;
 }
 
+static bool is_date_sep(char c)
+{
+    return c == '-' || c == '.' || c == '/' || c == ' ';
+}
+
 /* copy only YYYY from YYYY-MM-DD for display purposes */
 static char *strdupescyear(const char *s)
 {
@@ -525,8 +530,8 @@ static char *strdupescyear(const char *s)
         return strdupesc(s);
 
     if (isdigit(s[0]) && isdigit(s[1]) && isdigit(s[2]) && isdigit(s[3]) &&
-            s[4] == '-' && isdigit(s[5]) && isdigit(s[6]) &&
-            s[7] == '-' && isdigit(s[8]) && isdigit(s[9]))
+            is_date_sep(s[4]) && isdigit(s[5]) && isdigit(s[6]) &&
+            is_date_sep(s[7]) && isdigit(s[8]) && isdigit(s[9]))
         return strndup(s, 4);
     else
         return strdupesc(s);
