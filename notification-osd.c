@@ -355,7 +355,11 @@ static mpv_handle *hmpv;
 static void ntf_set_progress_bar(void);
 static void ntf_set_urgency(void);
 static void ntf_set_category(void);
+static void ntf_set_app_name(void);
 static void ntf_set_app_icon(void);
+static void ntf_set_image(void);
+static void ntf_uninit(void);
+static void ntf_init(void);
 static void thumbnail_ctx_destroy(void);
 
 static void set_log_level(char *msg_level)
@@ -1070,10 +1074,7 @@ static void on_property_change(mpv_event *event)
 
     switch (event->reply_userdata) {
         case P_APP_NAME:
-            if (op_true(P_APP_NAME))
-                notify_set_app_name(observed_props[P_APP_NAME].node.u.string);
-            else
-                notify_set_app_name("mpv");
+            ntf_set_app_name();
             break;
         case P_CHAPTER:
         case P_CHAPTERS:
@@ -1157,7 +1158,7 @@ static void thumbnail_ctx_destroy(void)
 
     memset(&thumbnail_ctx, 0, sizeof(thumbnail_ctx));
     if (ntf)
-        notify_notification_set_image_from_pixbuf(ntf, NULL);
+        ntf_set_image();
 
     VERBOSE("destroyed thumbnail context");
 }
@@ -1220,7 +1221,7 @@ static void thumbnail_ctx_maybe_new(double src_w, double src_h,
     }
 
     /* this function is only called while ntf_image_enabled is true */
-    notify_notification_set_image_from_pixbuf(ntf, thumbnail_ctx.pixbuf);
+    ntf_set_image();
     VERBOSE("configured thumbnail context");
 }
 
@@ -1309,6 +1310,9 @@ static void ntf_check_image(void)
 
 static void ntf_set_progress_bar(void)
 {
+    if (!ntf)
+        return;
+
     if (op_true(P_IDLE_ACTIVE) || !opt_true(O_SEND_PROGRESS)) {
         notify_notification_set_hint(ntf, "value", NULL);
         return;
@@ -1332,11 +1336,17 @@ static void ntf_set_progress_bar(void)
 
 static void ntf_set_urgency(void)
 {
+    if (!ntf)
+        return;
+
     notify_notification_set_urgency(ntf, opts[O_NTF_URGENCY].u.int64);
 }
 
 static void ntf_set_category(void)
 {
+    if (!ntf)
+        return;
+
     if (opt_true(O_NTF_CATEGORY)) {
         notify_notification_set_category(ntf, opts[O_NTF_CATEGORY].u.string);
     } else {
@@ -1345,8 +1355,22 @@ static void ntf_set_category(void)
     }
 }
 
+static void ntf_set_app_name(void)
+{
+    if (!notify_is_initted())
+        return;
+
+    if (op_true(P_APP_NAME))
+        notify_set_app_name(observed_props[P_APP_NAME].node.u.string);
+    else
+        notify_set_app_name("mpv");
+}
+
 static void ntf_set_app_icon(void)
 {
+    if (!notify_is_initted())
+        return;
+
     if (opt_true(O_NTF_APP_ICON))
         notify_set_app_icon(opts[O_NTF_APP_ICON].u.string);
     else
@@ -1355,12 +1379,63 @@ static void ntf_set_app_icon(void)
 
 static void ntf_close(void)
 {
+    if (!ntf)
+        return;
+
     DEBUG("notification close");
     GError *gerr = NULL;
     if (!notify_notification_close(ntf, &gerr)) {
         ERR("failed to close notification: %s", gerr->message);
         g_error_free(gerr);
     }
+}
+
+static void ntf_set_image(void)
+{
+    if (!ntf)
+        return;
+
+    notify_notification_set_image_from_pixbuf(ntf, thumbnail_ctx.pixbuf);
+}
+
+static void ntf_uninit(void)
+{
+    ntf_close();
+    if (ntf) {
+        g_object_unref(ntf);
+        ntf = NULL;
+    }
+    if (notify_is_initted())
+        notify_uninit();
+}
+
+static void ntf_init(void)
+{
+    if (!notify_init("mpv")) {
+        ERR("notify_init() failed");
+        return;
+    }
+
+    if (!ntf_update_server_caps()) {
+        ERR("failed to get server caps");
+        ntf_uninit();
+        return;
+    }
+
+    ntf_set_app_name();
+    ntf_set_app_icon();
+
+    if (!(ntf = notify_notification_new(summary, body, NULL))) {
+        ERR("failed to create notification");
+        ntf_uninit();
+        return;
+    }
+    notify_notification_set_timeout(ntf, NOTIFY_EXPIRES_NEVER);
+
+    ntf_set_progress_bar();
+    ntf_set_category();
+    ntf_set_urgency();
+    ntf_set_image();
 }
 
 static void write_summary(void)
@@ -1538,13 +1613,15 @@ static void write_body(void)
 
 static void ntf_upd(void)
 {
-    DEBUG("sending notification");
+    if (!ntf)
+        return;
 
     if (rewrite_summary)
         write_summary();
     if (rewrite_body)
         write_body();
 
+    DEBUG("sending notification");
     if (rewrite_summary || rewrite_body)
         notify_notification_update(ntf, summary, body, NULL);
 
@@ -1788,21 +1865,10 @@ int mpv_open_cplugin(mpv_handle *mpv)
     int rc = -1;
     hmpv = mpv;
     client_name = mpv_client_name(hmpv);
-    gboolean libnotify_init = false;
 
     char *msg_level_str = mpv_get_property_string(hmpv, "msg-level");
     set_log_level(msg_level_str);
     mpv_free(msg_level_str);
-
-    if (!(libnotify_init = notify_init("mpv"))) {
-        ERR("notify_init() failed");
-        goto done;
-    }
-
-    if (!ntf_update_server_caps()) {
-        ERR("failed to get initial server caps");
-        goto done;
-    }
 
     if (pipe2(wakeup_pipe, O_CLOEXEC | O_NONBLOCK) == -1) {
         ERR("pipe2() failed: %m");
@@ -1816,19 +1882,10 @@ int mpv_open_cplugin(mpv_handle *mpv)
 
     opts_copy(opts, opts_defaults);
 
-    notify_set_app_name("mpv");
-    ntf_set_app_icon();
-
     write_summary();
     write_body();
-    if (!(ntf = notify_notification_new(summary, body, NULL))) {
-        ERR("failed to create notification");
-        goto done;
-    }
 
-    notify_notification_set_timeout(ntf, NOTIFY_EXPIRES_NEVER);
-    ntf_set_category();
-    ntf_set_urgency();
+    ntf_init();
 
     opts_from_file(opts);
     opts_run_changed(opts_defaults, opts);
@@ -1883,11 +1940,7 @@ int mpv_open_cplugin(mpv_handle *mpv)
 done:
     thumbnail_ctx_destroy();
 
-    if (ntf) {
-        ntf_close();
-        g_object_unref(ntf);
-        ntf = NULL;
-    }
+    ntf_uninit();
 
     free(osd_str_chapter);
     mpv_free(osd_str_chapters);
@@ -1911,9 +1964,6 @@ done:
         if (wakeup_pipe[i] != -1)
             close(wakeup_pipe[i]);
     }
-
-    if (libnotify_init)
-        notify_uninit();
 
     return rc;
 }
