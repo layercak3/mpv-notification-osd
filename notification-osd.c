@@ -1611,10 +1611,42 @@ static void write_body(void)
         APPEND("\n%s", observed_props[P_SUB_TEXT].node.u.string);
 }
 
+/*
+ * if the notification server is restarted while mpv is running, show/close will
+ * start failing with 'ServiceUnknown: The name is not activatable'. the only
+ * way to reset libnotify's global dbus proxy is to uninit and reinit the whole
+ * library.
+*/
+static void ntf_reinit(void)
+{
+    ntf_uninit();
+    ntf_init();
+    if (ntf) {
+        /*
+         * unobserve and reobserve all properties if server_body_markup changed
+         * so that affected properties get escaping added/removed, but also
+         * generally to retry showing the notification (this will also reset the
+         * timer, but that's ok)
+         */
+        for (size_t i = 0; i < sizeof(observed_props) / sizeof(observed_props[0]); i++) {
+            if (!mpv_has_app_name && i == P_APP_NAME)
+                continue;
+
+            if (mpv_unobserve_property(hmpv, i) < 0)
+                ERR("failed to unobserve property: %s", observed_props[i].name);
+
+            if (mpv_observe_property(hmpv, i, observed_props[i].name, observed_props[i].format) != 0)
+                ERR("failed to observe property: %s", observed_props[i].name);
+        }
+    }
+}
+
 static void ntf_upd(void)
 {
-    if (!ntf)
+    if (!ntf) {
+        ntf_reinit();
         return;
+    }
 
     if (rewrite_summary)
         write_summary();
@@ -1632,6 +1664,7 @@ static void ntf_upd(void)
     if (!notify_notification_show(ntf, &gerr)) {
         ERR("failed to show notification: %s", gerr->message);
         g_error_free(gerr);
+        ntf_reinit();
     }
 }
 
