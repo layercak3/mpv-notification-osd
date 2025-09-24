@@ -55,6 +55,9 @@ static char summary_store[512];
 static char *summary;
 static char body[4096];
 
+static long pd_thumbnail;
+static long pd_show;
+
 enum done_action {
     /*
      * a property or event means that the notification should be opened (track
@@ -153,6 +156,7 @@ enum opts_key {
     O_THUMBNAIL_SCALING,
     O_DISABLE_SCALING,
     O_FOCUS_MANUAL,
+    O_PERFDATA,
 
     O_END,
 };
@@ -178,6 +182,7 @@ static struct mpv_node opts_defaults[O_END] = {
     [O_THUMBNAIL_SCALING] = {.format = MPV_FORMAT_INT64, .u.int64 = SWS_BICUBIC },
     [O_DISABLE_SCALING] = {.format = MPV_FORMAT_FLAG, .u.flag = 0},
     [O_FOCUS_MANUAL] = {.format = MPV_FORMAT_FLAG, .u.flag = 0},
+    [O_PERFDATA] = {.format = MPV_FORMAT_FLAG, .u.flag = 0},
 };
 
 static struct mpv_node opts_base[O_END];
@@ -660,6 +665,10 @@ static void opts_run_changed(struct mpv_node *before, struct mpv_node *after)
                 case O_FOCUS_MANUAL:
                     done_actions |= A_NTF_RST;
                     break;
+                case O_PERFDATA:
+                    done_actions |= A_NTF_UPD;
+                    rewrite_body = true;
+                    break;
                 default:
                     break;
             }
@@ -758,6 +767,9 @@ static void set_opt(struct mpv_node *o, int line_count, const char *key,
             goto bad_bool;
     } else if (!strcmp(key, "focus_manual")) {
         if (!set_opt_bool(o, O_FOCUS_MANUAL, value))
+            goto bad_bool;
+    } else if (!strcmp(key, "perfdata")) {
+        if (!set_opt_bool(o, O_PERFDATA, value))
             goto bad_bool;
     } else {
         ERR("%s unknown key '%s', ignoring", msg_pfx, key);
@@ -1230,6 +1242,10 @@ static void thumbnail_ctx_process(void *data)
     if (!thumbnail_ctx.thumbnail)
         return;
 
+    struct timespec tp[2] = {0};
+    if (opt_true(O_PERFDATA))
+        clock_gettime(CLOCK_MONOTONIC, &tp[0]);
+
     if (thumbnail_ctx.sws) {
         const uint8_t *const src_slice[1] = {data};
         const int src_stride[1] = {thumbnail_ctx.src_stride};
@@ -1240,6 +1256,15 @@ static void thumbnail_ctx_process(void *data)
     } else {
         memcpy(thumbnail_ctx.thumbnail, data,
                 thumbnail_ctx.dst_stride * thumbnail_ctx.dst_h);
+    }
+
+    if (opt_true(O_PERFDATA)) {
+        clock_gettime(CLOCK_MONOTONIC, &tp[1]);
+        long in_ns[2];
+        in_ns[0] = tp[0].tv_sec * 1e9 + tp[0].tv_nsec;
+        in_ns[1] = tp[1].tv_sec * 1e9 + tp[1].tv_nsec;
+        pd_thumbnail = (in_ns[1] - in_ns[0]) / 1e3;
+        rewrite_body = true;
     }
 
     done_actions |= A_NTF_UPD;
@@ -1605,7 +1630,14 @@ static void write_body(void)
         }
     }
 
-    /* L7: current subtitle/lyric text, if any */
+    /* L7: perfdata */
+
+    if (opt_true(O_PERFDATA)) {
+        APPEND("\nThumbnail postprocess timing (last µs): %ld", pd_thumbnail);
+        APPEND("\nPrevious ntf show rtt (µs): %ld", pd_show);
+    }
+
+    /* L8: current subtitle/lyric text, if any */
 
     if (opt_true(O_SEND_SUB_TEXT) && op_true(P_SUB_TEXT) && op_true(P_SUB_VISIBILITY))
         APPEND("\n%s", observed_props[P_SUB_TEXT].node.u.string);
@@ -1661,10 +1693,24 @@ static void ntf_upd(void)
     rewrite_body = false;
 
     GError *gerr = NULL;
+
+    struct timespec tp[2] = {0};
+    if (opt_true(O_PERFDATA))
+        clock_gettime(CLOCK_MONOTONIC, &tp[0]);
+
     if (!notify_notification_show(ntf, &gerr)) {
         ERR("failed to show notification: %s", gerr->message);
         g_error_free(gerr);
         ntf_reinit();
+    }
+
+    if (opt_true(O_PERFDATA)) {
+        clock_gettime(CLOCK_MONOTONIC, &tp[1]);
+        long in_ns[2];
+        in_ns[0] = tp[0].tv_sec * 1e9 + tp[0].tv_nsec;
+        in_ns[1] = tp[1].tv_sec * 1e9 + tp[1].tv_nsec;
+        pd_show = (in_ns[1] - in_ns[0]) / 1e3;
+        rewrite_body = true;
     }
 }
 

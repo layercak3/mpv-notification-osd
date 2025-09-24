@@ -117,6 +117,8 @@ changed at runtime.
 * `focus_manual` (boolean): Always consider the player to be focused,
   effectively never showing the notification unless the script messages are used
   to manually/externally show it. (default: no)
+* `perfdata` (boolean): Collects and prints some frame timing information mostly
+  related to screenshots. (default: no)
 
 ## License
 
