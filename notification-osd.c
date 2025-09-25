@@ -837,13 +837,8 @@ done:
     mpv_free_node_contents(&path_node);
 }
 
-static void opts_from_runtime(struct mpv_node *o, mpv_event_property *event_prop)
+static void opts_from_runtime(struct mpv_node *o, mpv_node *node)
 {
-    if (event_prop->format != MPV_FORMAT_NODE)
-        return;
-
-    struct mpv_node *node = event_prop->data;
-
     if (node->format != MPV_FORMAT_NODE_MAP)
         return;
 
@@ -1118,7 +1113,8 @@ static void on_property_change(mpv_event *event)
             opts_copy(opts_previous, opts);
             opts_destroy(opts);
             opts_copy(opts, opts_base);
-            opts_from_runtime(opts, event_prop);
+            if (event_prop->format == MPV_FORMAT_NODE)
+                opts_from_runtime(opts, event_prop->data);
             opts_run_changed(opts_previous, opts);
             opts_destroy(opts_previous);
             break;
@@ -1862,6 +1858,22 @@ static void on_client_message(mpv_event *event)
     } else if (!strcmp(event_cm->args[0], "open")) {
         done_actions |= A_NTF_RST;
         force_open = true;
+    } else if (!strcmp(event_cm->args[0], "reload-config")) {
+        struct mpv_node opts_previous[O_END] = {0};
+        struct mpv_node script_opts_node = {0};
+        opts_copy(opts_previous, opts);
+        opts_destroy(opts);
+        opts_copy(opts, opts_defaults);
+        opts_from_file(opts);
+        opts_destroy(opts_base);
+        opts_copy(opts_base, opts);
+        /* because we don't support saving node formats */
+        if (mpv_get_property(hmpv, "options/script-opts", MPV_FORMAT_NODE,
+                    &script_opts_node) == 0)
+            opts_from_runtime(opts, &script_opts_node);
+        opts_run_changed(opts_previous, opts);
+        opts_destroy(opts_previous);
+        mpv_free_node_contents(&script_opts_node);
     }
 }
 

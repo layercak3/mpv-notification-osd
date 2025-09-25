@@ -77,6 +77,8 @@ The following script messages will be acted upon:
 
 * `close`: Disarm the timer and close the notification.
 * `open`: Force the notification to stay open until the `close` message is sent.
+* `reload-config`: Reload the configuration file (and apply runtime options over
+  it).
 
 ## Script options
 
