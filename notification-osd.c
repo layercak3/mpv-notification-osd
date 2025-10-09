@@ -235,6 +235,7 @@ enum observed_prop_userdata {
     P_MOUSE_POS,
     P_MUTE,
     P_OPTIONS_SCRIPT_OPTS,
+    P_LOOP_FILE,
     P_PAUSE,
     P_PAUSED_FOR_CACHE,
     P_PERCENT_POS,
@@ -301,6 +302,8 @@ static struct observed_prop observed_props[] = {
         false, A_NTF_RST, false, false, true},
     [P_LAVFI_COMPLEX] = {"lavfi-complex", MPV_FORMAT_STRING,
         false, A_NTF_UPD | A_NTF_CHECK_IMAGE},
+    [P_LOOP_FILE] = {"loop-file", MPV_FORMAT_STRING,
+        false, A_NTF_RST, false, false, true},
     [P_MEDIA_TITLE] = {"media-title", MPV_FORMAT_STRING,
         false, A_NTF_UPD, false, true, false},
     [P_METADATA] = {"metadata", MPV_FORMAT_NODE,
@@ -1527,6 +1530,11 @@ static void write_body(void)
                     (int)percent_pos_rounded);
         } else {
             APPEND(" %s (%d%%)", com_time_time, (int)percent_pos_rounded);
+        }
+
+        if (op_avail(P_LOOP_FILE) &&
+                strcmp(observed_props[P_LOOP_FILE].node.u.string, "no")) {
+            APPEND(" 🔁");
         }
     }
 
