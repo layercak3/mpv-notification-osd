@@ -236,6 +236,7 @@ enum observed_prop_userdata {
     P_MUTE,
     P_OPTIONS_SCRIPT_OPTS,
     P_LOOP_FILE,
+    P_LOOP_PLAYLIST,
     P_PAUSE,
     P_PAUSED_FOR_CACHE,
     P_PERCENT_POS,
@@ -303,6 +304,8 @@ static struct observed_prop observed_props[] = {
     [P_LAVFI_COMPLEX] = {"lavfi-complex", MPV_FORMAT_STRING,
         false, A_NTF_UPD | A_NTF_CHECK_IMAGE},
     [P_LOOP_FILE] = {"loop-file", MPV_FORMAT_STRING,
+        false, A_NTF_RST, false, false, true},
+    [P_LOOP_PLAYLIST] = {"loop-playlist", MPV_FORMAT_STRING,
         false, A_NTF_RST, false, false, true},
     [P_MEDIA_TITLE] = {"media-title", MPV_FORMAT_STRING,
         false, A_NTF_UPD, false, true, false},
@@ -1499,6 +1502,10 @@ static void write_body(void)
 
     if (op_avail(P_PLAYLIST_POS) &&
             observed_props[P_PLAYLIST_COUNT].node.u.int64 > 1) {
+        if (op_avail(P_LOOP_PLAYLIST) &&
+                strcmp(observed_props[P_LOOP_PLAYLIST].node.u.string, "no")) {
+            APPEND("🔁 ");
+        }
         APPEND("(%02" PRId64 "/%02" PRId64 ") ",
                 observed_props[P_PLAYLIST_POS].node.u.int64 + 1,
                 observed_props[P_PLAYLIST_COUNT].node.u.int64);
