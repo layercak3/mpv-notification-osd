@@ -1507,7 +1507,7 @@ static void write_body(void)
         APPEND("⏸");
     } else if (op_true(P_PLAY_DIRECTION) &&
             !strcmp(observed_props[P_PLAY_DIRECTION].node.u.string, "backward")) {
-        APPEND("⏴︎");
+        APPEND("◀");
     } else {
         APPEND("▶");
     }
