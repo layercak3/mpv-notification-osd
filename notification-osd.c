@@ -1501,18 +1501,16 @@ static void write_body(void)
                 observed_props[P_PLAYLIST_COUNT].node.u.int64);
     }
 
-    const char *com_playback_indicator = NULL;
-    if (op_true(P_PAUSED_FOR_CACHE) || op_true(P_SEEKING))
-        com_playback_indicator = "⏲";
-    else if (op_true(P_PAUSE))
-        com_playback_indicator = "⏸";
-    else if (op_true(P_PLAY_DIRECTION) &&
-            !strcmp(observed_props[P_PLAY_DIRECTION].node.u.string, "backward"))
-        com_playback_indicator = "⏴︎";
-    else
-        com_playback_indicator = "▶";
-
-    APPEND("%s", com_playback_indicator);
+    if (op_true(P_PAUSED_FOR_CACHE) || op_true(P_SEEKING)) {
+        APPEND("⏲");
+    } else if (op_true(P_PAUSE)) {
+        APPEND("⏸");
+    } else if (op_true(P_PLAY_DIRECTION) &&
+            !strcmp(observed_props[P_PLAY_DIRECTION].node.u.string, "backward")) {
+        APPEND("⏴︎");
+    } else {
+        APPEND("▶");
+    }
 
     if (!op_true(P_IDLE_ACTIVE) && !op_true(P_USER_DATA__DETECT_IMAGE__DETECTED) &&
             op_avail(P_TIME_POS)) {
